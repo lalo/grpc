@@ -40,7 +40,8 @@
 #ifdef BAZEL_BUILD
 #include "examples/protos/helloworld.grpc.pb.h"
 #else
-#include "helloworld.grpc.pb.h"
+// #include "helloworld.grpc.pb.h"
+#include "helloworld_grpc.h"
 #endif
 
 using grpc::Server;
@@ -53,10 +54,17 @@ using helloworld::Greeter;
 
 // Logic and data behind the server's behavior.
 class GreeterServiceImpl final : public Greeter::Service {
-  Status SayHello(ServerContext* context, const HelloRequest* request,
-                  HelloReply* reply) override {
-    std::string prefix("Hello ");
-    reply->set_message(prefix + request->name());
+  Status SayHello(ServerContext* context, const bond::comm::message<HelloRequest>* request,
+                  bond::comm::message<HelloReply>* reply) override {
+    // std::string prefix("Hello ");
+    // reply->set_message(prefix + request->name());
+
+    HelloReply real_reply;
+    real_reply.message = "Hello from service";
+
+    bond::comm::message<HelloReply> rep(real_reply);
+    *reply = rep;
+
     return Status::OK;
   }
 };

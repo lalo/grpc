@@ -36,12 +36,17 @@
 #include <string>
 
 #include <grpc++/grpc++.h>
+#include <bond/core/bond.h>
+#include <bond/stream/output_buffer.h>
 
 #ifdef BAZEL_BUILD
 #include "examples/protos/helloworld.grpc.pb.h"
 #else
-#include "helloworld.grpc.pb.h"
+// #include "helloworld.grpc.pb.h"
+#include "helloworld_grpc.h"
 #endif
+
+// #include "bond_utils.h"
 
 using grpc::Channel;
 using grpc::ClientContext;
@@ -58,9 +63,13 @@ class GreeterClient {
   // Assembles the client's payload, sends it and presents the response back
   // from the server.
   std::string SayHello(const std::string& user) {
+
+    // helloworldbond::HelloReply reply2;
+
     // Data we are sending to the server.
     HelloRequest request;
-    request.set_name(user);
+    // request.set_name(user);
+    request.name = user;
 
     // Container for the data we expect from the server.
     HelloReply reply;
@@ -70,11 +79,13 @@ class GreeterClient {
     ClientContext context;
 
     // The actual RPC.
-    Status status = stub_->SayHello(&context, request, &reply);
+    bond::comm::message<HelloReply> rep;
+    Status status = stub_->SayHello(&context, &request, &rep);
 
     // Act upon its status.
     if (status.ok()) {
-      return reply.message();
+      // return reply.message();
+      return rep.value().Deserialize().message;
     } else {
       std::cout << status.error_code() << ": " << status.error_message()
                 << std::endl;
