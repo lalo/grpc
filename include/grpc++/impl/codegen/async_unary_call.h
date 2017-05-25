@@ -106,6 +106,8 @@ class ClientAsyncResponseReader final
   static void operator delete(void* ptr, std::size_t size) {
     assert(size == sizeof(ClientAsyncResponseReader));
   }
+  static void operator delete(void*, void*) {
+  }
 
   /// See \a ClientAsyncResponseReaderInterface::ReadInitialMetadata for
   /// semantics.
