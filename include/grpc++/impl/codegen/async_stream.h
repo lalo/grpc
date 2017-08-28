@@ -41,6 +41,8 @@
 #include <grpc++/impl/codegen/service_type.h>
 #include <grpc++/impl/codegen/status.h>
 
+#pragma warning( push )
+#pragma warning( disable : 4101)
 namespace grpc {
 
 class CompletionQueue;
@@ -191,6 +193,8 @@ class ClientAsyncReader final : public ClientAsyncReaderInterface<R> {
   static void operator delete(void* ptr, std::size_t size) {
     assert(size == sizeof(ClientAsyncReader));
   }
+  static void operator delete(void*, void*) {
+  }
 
   /// See the \a ClientAsyncStreamingInterface.ReadInitialMetadata
   /// method for semantics.
@@ -294,6 +298,8 @@ class ClientAsyncWriter final : public ClientAsyncWriterInterface<W> {
   // always allocated against a call arena, no memory free required
   static void operator delete(void* ptr, std::size_t size) {
     assert(size == sizeof(ClientAsyncWriter));
+  }
+  static void operator delete(void*, void*) {
   }
 
   /// See the \a ClientAsyncStreamingInterface.ReadInitialMetadata method for
@@ -422,6 +428,8 @@ class ClientAsyncReaderWriter final
   // always allocated against a call arena, no memory free required
   static void operator delete(void* ptr, std::size_t size) {
     assert(size == sizeof(ClientAsyncReaderWriter));
+  }
+  static void operator delete(void*, void*) {
   }
 
   /// See the \a ClientAsyncStreamingInterface.ReadInitialMetadata method
@@ -953,4 +961,5 @@ class ServerAsyncReaderWriter final
 
 }  // namespace grpc
 
+#pragma warning( pop )
 #endif  // GRPCXX_IMPL_CODEGEN_ASYNC_STREAM_H
