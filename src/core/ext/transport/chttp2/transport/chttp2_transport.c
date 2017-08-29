@@ -2239,6 +2239,7 @@ static void read_action_locked(grpc_exec_ctx *exec_ctx, void *tp,
           grpc_chttp2_perform_read(exec_ctx, t, t->read_buffer.slices[i]);
     }
     if (errors[1] != GRPC_ERROR_NONE) {
+       DebugBreak();
       errors[2] = try_http_parsing(exec_ctx, t);
       GRPC_ERROR_UNREF(error);
       error = GRPC_ERROR_CREATE_REFERENCING_FROM_STATIC_STRING(
