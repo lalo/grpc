@@ -29,8 +29,9 @@ import Data.Word
 import Control.Applicative
 import Control.Monad.Reader
 import Prelude
-import Text.Parsec.Pos (initialPos)
-import Text.Parsec hiding (many, optional, (<|>))
+import Text.Megaparsec.Pos (initialPos)
+import Text.Megaparsec hiding (many, optional, (<|>))
+import Text.Megaparsec.Char (char)
 import Language.Bond.Lexer
 import Language.Bond.Syntax.Types
 import Language.Bond.Syntax.Util
@@ -61,7 +62,7 @@ type Parser a = ParsecT String Symbols (ReaderT Environment IO) a
 
 -- | Parses content of a schema definition file.
 parseBond ::
-    SourceName                          -- ^ source name, used only for error messages
+    String                              -- ^ source name, used only for error messages
  -> String                              -- ^ content of a schema file to parse
  -> FilePath                            -- ^ path of the file being parsed, used to resolve relative import paths
  -> ImportResolver                      -- ^ function to resolve and load imported files
@@ -74,7 +75,7 @@ bond :: Parser Bond
 bond = do
     whiteSpace
     imports <- many import_
-    namespaces <- many1 namespace
+    namespaces <- some namespace
     local (with namespaces) $ Bond imports namespaces <$> many declaration <* eof
   where
     with namespaces e = e { currentNamespaces = namespaces }
@@ -232,7 +233,9 @@ struct = do
     local (with params) $ Struct namespaces attr name params <$> base <*> fields <* optional semi
   where
     base = optional (colon *> userType <?> "base struct")
-    fields = unique $ braces $ manySortedBy (comparing fieldOrdinal) (field <* semi)
+    -- TODO SORT FIELDS
+    -- fields = unique $ braces $ manySortedBy (comparing fieldOrdinal) (field <* semi)
+    fields = unique $ braces $ many (field <* semi)
     with params e = e { currentParams = params }
     unique p = do
         fields' <- p
@@ -423,8 +426,8 @@ checkUserType check = do
 findDuplicatesBy :: (Eq b) => (a -> b) -> [a] -> [a]
 findDuplicatesBy accessor xs = deleteFirstsBy ((==) `on` accessor) xs (nubBy ((==) `on` accessor) xs)
 
-manySortedBy :: (a -> a -> Ordering) -> ParsecT s u m a -> ParsecT s u m [a]
-manySortedBy = manyAccum . insertBy
+-- manySortedBy :: (a -> a -> Ordering) -> ParsecT s u m a -> ParsecT s u m [a]
+-- manySortedBy = manyAccum . insertBy
 
 -- default type validator (type checking, out-of-range, enforce default type)
 validDefaultType :: Type -> Maybe Default -> Bool

@@ -42,7 +42,7 @@ library
                     bytestring >= 0.10,
                     filepath >= 1.0,
                     mtl >= 2.1,
-                    parsec >= 3.1,
+                    megaparsec >= 6.2,
                     scientific >= 0.3.4.6,
                     shakespeare >= 2.0,
                     text >= 0.11
@@ -112,7 +112,7 @@ test-suite gbc-tests
                     tasty-golden,
                     tasty-hunit,
                     tasty-quickcheck,
-                    parsec >= 3.1
+                    megaparsec >= 6.2
 
 executable gbc
   main-is:          Main.hs
@@ -136,4 +136,4 @@ executable gbc
                     filepath >= 1.0,
                     monad-loops >= 0.4,
                     text >= 0.11,
-                    parsec >= 3.1
+                    megaparsec >= 6.2
