@@ -154,18 +154,18 @@ identifier = identifier' rws
 integer' :: Parser Integer
 integer' = lexeme L.decimal
 
-integer = L.signed sc integer'
+integer = natural <|> L.signed sc integer'
 
 keyword :: String -> Parser ()
 keyword w = lexeme (string w *> notFollowedBy alphaNumChar)
 
 hexadecimal :: Parser Integer
-hexadecimal = lexeme $ char '0' >> char' 'x' >> L.hexadecimal
+hexadecimal = lexeme . try $ char '0' >> char' 'x' >> L.hexadecimal
 
 octal :: Parser Integer
-octal = lexeme $ char '0' >> char' 'o' >> L.octal
+octal = lexeme . try $ char '0' >> char' 'o' >> L.octal
 
-natural = decimal <|> hexadecimal <|> octal
+natural = hexadecimal <|> octal <|> decimal
 
 parens :: Parser a -> Parser a
 parens = between (symbol "(") (symbol ")")
