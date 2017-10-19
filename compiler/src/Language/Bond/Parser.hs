@@ -25,11 +25,12 @@ import Data.Ord
 import Data.List
 import Data.Function
 import Data.Int
+import Data.Void (Void)
 import Data.Word
 import Control.Applicative
 import Control.Monad.Reader
 import Prelude
-import Text.Megaparsec.Pos (initialPos)
+-- import Text.Megaparsec.Pos (initialPos)
 import Text.Megaparsec hiding (many, optional, (<|>))
 import Text.Megaparsec.Char (char)
 import Language.Bond.Lexer
@@ -44,21 +45,8 @@ data Symbols =
     , imports :: [FilePath]     -- list of imported files
     }
 
-type ImportResolver =
-    FilePath                    -- ^ path of the file containing the <https://microsoft.github.io/bond/manual/compiler.html#import-statements import statement>
- -> FilePath                    -- ^ (usually relative) path of the imported file
- -> IO (FilePath, String)       -- ^ the resolver function returns the resolved path of the imported file and its content
-
--- parser environment, immutable but contextual
-data Environment =
-    Environment
-    { currentNamespaces :: [Namespace]  -- namespace(s) in current context
-    , currentParams :: [TypeParam]      -- type parameter(s) for current type (struct or alias)
-    , currentFile :: FilePath           -- path of the current file
-    , resolveImport :: ImportResolver   -- imports resolver
-    }
-
-type Parser a = ParsecT String Symbols (ReaderT Environment IO) a
+-- type Parser a = ParsecT String Symbols (ReaderT Environment IO) a
+type Parser a = ParsecT Void String (ReaderT Environment IO) a
 
 -- | Parses content of a schema definition file.
 parseBond ::
@@ -66,9 +54,10 @@ parseBond ::
  -> String                              -- ^ content of a schema file to parse
  -> FilePath                            -- ^ path of the file being parsed, used to resolve relative import paths
  -> ImportResolver                      -- ^ function to resolve and load imported files
- -> IO (Either ParseError Bond)         -- ^ function returns 'Bond' which represents the parsed abstract syntax tree
+ -> IO (Either (ParseError Char Void) Bond)         -- ^ function returns 'Bond' which represents the parsed abstract syntax tree
                                         --   or 'ParserError' if parsing failed
-parseBond s c f r = runReaderT (runParserT bond (Symbols [] []) s c) (Environment [] [] f r)
+-- parseBond s c f r = runReaderT (runParserT bond (Symbols [] []) s c) (Environment [] [] f r)
+parseBond s c f r = runReaderT (runParserT bond s c) (Environment [] [] f r)
 
 -- parser for .bond files
 bond :: Parser Bond
@@ -94,9 +83,10 @@ processImport :: Import -> Parser()
 processImport (Import file) = do
     Environment { currentFile = currentFile, resolveImport = resolveImport } <- ask
     (path, content) <- liftIO $ resolveImport currentFile file
-    Symbols { imports = imports } <- getState
+    let imports = []
+    -- Symbols { imports = imports } <- getState
     if path `elem` imports then return () else do
-            modifyState (\u -> u { imports = path:imports } )
+            -- modifyState (\u -> u { imports = path:imports } )
             setInput content
             setPosition $ initialPos path
             void $ local (\e -> e { currentFile = path }) bond
@@ -115,10 +105,12 @@ declaration = do
 
 updateSymbols :: Declaration -> Parser ()
 updateSymbols decl = do
-    (previous, symbols) <- partition (duplicateDeclaration decl) <$> symbols <$> getState
+    -- (previous, symbols) <- partition (duplicateDeclaration decl) <$> symbols <$> getState
+    (previous, symbols) <- partition (duplicateDeclaration decl) <$> mempty
     case reconcile previous decl of
         (False, _) -> fail $ "The " ++ showPretty decl ++ " has been previously defined as " ++ showPretty (head previous)
-        (True, f) -> modifyState (f symbols)
+        -- (True, f) -> modifyState (f symbols)
+        (True, f) -> mempty
   where
     reconcile [x@Forward {}] y@Struct {} = (paramsMatch x y, add y)
     reconcile [x@Forward {}] y@Forward {} = (paramsMatch x y, const id)
@@ -142,7 +134,9 @@ findSymbol name = doFind <?> "qualified name"
   where
     doFind = do
         namespaces <- asks currentNamespaces
-        Symbols { symbols = symbols } <- getState
+        let imports = []
+        let symbols = []
+        -- Symbols { symbols = symbols } <- getState
         case find (declMatching namespaces name) symbols of
             Just decl -> return decl
             Nothing -> fail $ "Unknown symbol: " ++ showQualifiedName name
@@ -235,8 +229,11 @@ struct = do
     base = optional (colon *> userType <?> "base struct")
     -- TODO SORT FIELDS
     -- fields = unique $ braces $ manySortedBy (comparing fieldOrdinal) (field <* semi)
-    fields = unique $ braces $ many (field <* semi)
+    fields = sortFields $ unique $ braces $ many (field <* semi)
     with params e = e { currentParams = params }
+    sortFields p = do
+        fields' <- p
+        return $ sortBy (comparing fieldOrdinal) fields'
     unique p = do
         fields' <- p
         case findDuplicatesBy fieldOrdinal fields' ++ findDuplicatesBy fieldName fields' of
@@ -417,7 +414,8 @@ payload = void_ <|> liftM Just userStruct
 checkUserType :: (Type -> Bool) -> Parser Type
 checkUserType check = do
     t <- userType
-    if (valid t) then return t else unexpected "type"
+    -- if (valid t) then return t else unexpected "type"
+    if (valid t) then return t else fail "type"
   where
     valid t = case t of
         BT_TypeParam _ -> True

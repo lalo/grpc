@@ -34,6 +34,8 @@ module Language.Bond.Lexer
     , stringLiteral
     , symbol
     , whiteSpace
+    , ImportResolver
+    , Environment(..)
     ) where
 
 import Data.List
@@ -41,8 +43,25 @@ import Data.Void (Void)
 import Text.Megaparsec
 import qualified Text.Megaparsec.Char.Lexer as L
 import Text.Megaparsec.Char
+import Control.Monad.Reader
+import Language.Bond.Syntax.Types
 
-type Parser = Parsec Void String
+type ImportResolver =
+    FilePath                    -- ^ path of the file containing the <https://microsoft.github.io/bond/manual/compiler.html#import-statements import statement>
+ -> FilePath                    -- ^ (usually relative) path of the imported file
+ -> IO (FilePath, String)       -- ^ the resolver function returns the resolved path of the imported file and its content
+
+-- parser environment, immutable but contextual
+data Environment =
+    Environment
+    { currentNamespaces :: [Namespace]  -- namespace(s) in current context
+    , currentParams :: [TypeParam]      -- type parameter(s) for current type (struct or alias)
+    , currentFile :: FilePath           -- path of the current file
+    , resolveImport :: ImportResolver   -- imports resolver
+    }
+
+-- type Parser = Parsec Void String
+type Parser a = ParsecT Void String (ReaderT Environment IO) a
 
 sc :: Parser ()
 sc = L.space space1 lineCmnt blockCmnt
@@ -116,7 +135,7 @@ decimal = lexeme L.decimal
 identifier' :: [String] -> Parser String
 identifier' restricted = (lexeme . try) (p >>= check)
   where
-    p       = (:) <$> letterChar <*> many alphaNumChar
+    p       = (:) <$> (letterChar <|> char '_') <*> many (alphaNumChar <|> char '_')
     check x = if x `elem` restricted
                 then fail $ "keyword " ++ show x ++ " cannot be an identifier"
                 else return x

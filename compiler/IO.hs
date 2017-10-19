@@ -15,13 +15,16 @@ import System.FilePath
 import System.Directory
 import System.IO
 import Control.Applicative
+import Data.Void (Void)
 import Prelude
 import Data.Aeson (eitherDecode)
-import Data.Text
 import Control.Monad.Loops (firstM)
 import qualified Data.ByteString.Lazy as BL
-import Text.Parsec
-import Text.ParserCombinators.Parsec.Error
+import Text.Megaparsec
+import qualified Data.List.NonEmpty as NE
+-- import Text.Megaparsec.Error
+-- import Text.Megaparsec.Pos
+-- import Text.ParserCombinators.Parsec.Error
 import Text.Printf
 import Language.Bond.Syntax.Types (Bond(..))
 import Language.Bond.Syntax.JSON()
@@ -86,21 +89,22 @@ parseNamespaceMappings = mapM $
         Left err -> fail $ show err
         Right m -> return m
 
-msbuildErrorMessage :: ParseError -> String
+msbuildErrorMessage :: (ParseError Char Void) -> String
 msbuildErrorMessage err = printf "%s(%d,%d) : error B0000: %s" name line col message
     where
-        message = combinedMessage err
+        -- message = combinedMessage err
+        message = parseErrorPretty err
         pos = errorPos err
-        name = sourceName pos
-        line = sourceLine pos
-        col = sourceColumn pos
+        name = sourceName (NE.head pos)
+        line = unPos $ sourceLine (NE.head pos)
+        col = unPos $ sourceColumn (NE.head pos)
 
-combinedMessage :: ParseError -> String
-combinedMessage err = id $ unpack $ intercalate (pack ", ") messages
-    where
-        -- showErrorMessages returns a multi-line String starting with a blank
-        -- line. We need to break it up to make a useful one-line message.
-        messages = splitOn (pack "\n") $ strip $ pack $
-            showErrorMessages "or" "unknown parse error"
-                "expecting" "unexpected" "end of input"
-                (errorMessages err)
+-- combinedMessage :: ParseError -> String
+-- combinedMessage err = id $ unpack $ intercalate (pack ", ") messages
+--     where
+--         -- showErrorMessages returns a multi-line String starting with a blank
+--         -- line. We need to break it up to make a useful one-line message.
+--         messages = splitOn (pack "\n") $ strip $ pack $
+--             showErrorMessages "or" "unknown parse error"
+--                 "expecting" "unexpected" "end of input"
+--                 (errorMessages err)
