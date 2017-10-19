@@ -259,8 +259,8 @@ field = do
                 else fail "Field ordinal must be within the range 0-65535"
     modifier = option Optional
                     (keyword "optional" *> pure Optional
-                 <|> keyword "required" *> pure Required
-                 <|> keyword "required_optional" *> pure RequiredOptional)
+                 <|> keyword "required_optional" *> pure RequiredOptional
+                 <|> keyword "required" *> pure Required)
     default_ = equal *>
                     (keyword "true" *> pure (DefaultBool True)
                  <|> keyword "false" *> pure (DefaultBool False)
