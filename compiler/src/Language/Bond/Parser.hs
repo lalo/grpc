@@ -21,6 +21,7 @@ module Language.Bond.Parser
     )
     where
 
+import Control.Monad.State.Lazy
 import Data.Ord
 import Data.List
 import Data.Function
@@ -39,14 +40,14 @@ import Language.Bond.Syntax.Util
 import Language.Bond.Syntax.Internal
 
 -- parser state, mutable and global
-data Symbols =
-    Symbols
-    { symbols :: [Declaration]  -- list of structs, enums and aliases declared in the current and all imported files
-    , imports :: [FilePath]     -- list of imported files
-    }
+-- data Symbols =
+--     Symbols
+--     { symbols :: [Declaration]  -- list of structs, enums and aliases declared in the current and all imported files
+--     , imports :: [FilePath]     -- list of imported files
+--     }
 
 -- type Parser a = ParsecT String Symbols (ReaderT Environment IO) a
-type Parser a = ParsecT Void String (ReaderT Environment IO) a
+type Parser a = StateT Symbols (ParsecT Void String (ReaderT Environment IO)) a
 
 -- | Parses content of a schema definition file.
 parseBond ::
@@ -57,7 +58,7 @@ parseBond ::
  -> IO (Either (ParseError Char Void) Bond)         -- ^ function returns 'Bond' which represents the parsed abstract syntax tree
                                         --   or 'ParserError' if parsing failed
 -- parseBond s c f r = runReaderT (runParserT bond (Symbols [] []) s c) (Environment [] [] f r)
-parseBond s c f r = runReaderT (runParserT bond s c) (Environment [] [] f r)
+parseBond s c f r = runReaderT (runParserT (evalStateT bond (Symbols [] [])) s c) (Environment [] [] f r)
 
 -- parser for .bond files
 bond :: Parser Bond
@@ -83,10 +84,10 @@ processImport :: Import -> Parser()
 processImport (Import file) = do
     Environment { currentFile = currentFile, resolveImport = resolveImport } <- ask
     (path, content) <- liftIO $ resolveImport currentFile file
-    let imports = []
-    -- Symbols { imports = imports } <- getState
+    -- let imports = []
+    Symbols { imports = imports } <- get
     if path `elem` imports then return () else do
-            -- modifyState (\u -> u { imports = path:imports } )
+            modify (\u -> u { imports = path:imports } )
             setInput content
             setPosition $ initialPos path
             void $ local (\e -> e { currentFile = path }) bond
@@ -106,11 +107,11 @@ declaration = do
 updateSymbols :: Declaration -> Parser ()
 updateSymbols decl = do
     -- (previous, symbols) <- partition (duplicateDeclaration decl) <$> symbols <$> getState
-    (previous, symbols) <- partition (duplicateDeclaration decl) <$> mempty
+    (previous, symbols) <- partition (duplicateDeclaration decl) <$> symbols <$> get
     case reconcile previous decl of
         (False, _) -> fail $ "The " ++ showPretty decl ++ " has been previously defined as " ++ showPretty (head previous)
         -- (True, f) -> modifyState (f symbols)
-        (True, f) -> mempty
+        (True, f) -> modify (f symbols)
   where
     reconcile [x@Forward {}] y@Struct {} = (paramsMatch x y, add y)
     reconcile [x@Forward {}] y@Forward {} = (paramsMatch x y, const id)
@@ -134,9 +135,9 @@ findSymbol name = doFind <?> "qualified name"
   where
     doFind = do
         namespaces <- asks currentNamespaces
-        let imports = []
-        let symbols = []
-        -- Symbols { symbols = symbols } <- getState
+        -- let imports = []
+        -- let symbols = []
+        Symbols { symbols = symbols } <- get
         case find (declMatching namespaces name) symbols of
             Just decl -> return decl
             Nothing -> fail $ "Unknown symbol: " ++ showQualifiedName name

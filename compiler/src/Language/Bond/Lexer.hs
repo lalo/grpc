@@ -36,8 +36,10 @@ module Language.Bond.Lexer
     , whiteSpace
     , ImportResolver
     , Environment(..)
+    , Symbols(..)
     ) where
 
+import Control.Monad.State.Lazy
 import Data.List
 import Data.Void (Void)
 import Text.Megaparsec
@@ -45,6 +47,12 @@ import qualified Text.Megaparsec.Char.Lexer as L
 import Text.Megaparsec.Char
 import Control.Monad.Reader
 import Language.Bond.Syntax.Types
+
+data Symbols =
+    Symbols
+    { symbols :: [Declaration]  -- list of structs, enums and aliases declared in the current and all imported files
+    , imports :: [FilePath]     -- list of imported files
+    }
 
 type ImportResolver =
     FilePath                    -- ^ path of the file containing the <https://microsoft.github.io/bond/manual/compiler.html#import-statements import statement>
@@ -61,7 +69,8 @@ data Environment =
     }
 
 -- type Parser = Parsec Void String
-type Parser a = ParsecT Void String (ReaderT Environment IO) a
+-- type Parser a = ParsecT Void String (ReaderT Environment IO) a
+type Parser a = StateT Symbols (ParsecT Void String (ReaderT Environment IO)) a
 
 sc :: Parser ()
 sc = L.space space1 lineCmnt blockCmnt
